@@ -42,9 +42,9 @@ rosja <- obw.gotowe%>%
 
 save(rosja, file="rosja.Rda")
 
+# trzeba będzie poprawić Krym z polskimi nazwami
 test <- rosja%>%
-  ungroup()%>%
-  filter(kod.OKATO==unique(kod.OKATO))
+  filter(is.na(obwod.pl))
 
 ###############################################################################################################################
 
@@ -53,7 +53,7 @@ glowne.zarazone <- rosja %>%
   filter(data==max(data))%>%
   filter(ludnosc>1e6)%>%
   arrange(desc(zarazeni))%>%
-  head(10)%>%
+  head(11)%>%
   select(17)%>%
   pull()
 
@@ -61,7 +61,7 @@ kolejnosc <- rosja %>%
   filter(ludnosc>1e6)%>%
   filter(data==max(data))%>%
   arrange(desc(zarazeni))%>%
-  head(10)%>%
+  head(11)%>%
   select(obwod.pl)
 
 a <- rosja %>%
@@ -71,12 +71,12 @@ a$obwod.pl <- ordered(a$obwod.pl, levels = kolejnosc$obwod.pl)
 
 ggplot(a)+
   geom_col(aes(x=data, y=zarazeni), fill="blue", color="grey")+
-  facet_wrap(~obwod.pl, ncol = 5)+
+  facet_wrap(~obwod.pl, ncol = 4, scales = "free_y")+
   theme_bw()
 
 ggplot(a)+
   geom_col(aes(x=data, y=zach.dzienne), fill="blue", color="grey")+
-  facet_wrap(~obwod.pl, ncol=5)+
+  facet_wrap(~obwod.pl, ncol=4, scales = "free_y")+
   theme_bw()
 
 ggplot(a)+
@@ -90,7 +90,7 @@ glowne.zarazone.100 <- rosja %>%
   filter(ludnosc>1e6)%>%
   filter(data==max(data))%>%
   arrange(desc(srednia))%>%
-  head(8)%>%
+  head(11)%>%
   select(17)%>%
   pull()
 
@@ -98,7 +98,7 @@ kolejnosc <- rosja %>%
   filter(ludnosc>1e6)%>%
   filter(data==max(data))%>%
   arrange(desc(srednia))%>%
-  head(10)%>%
+  head(11)%>%
   select(obwod.pl)
 
 a <- rosja %>%
@@ -109,7 +109,7 @@ a$obwod.pl <- ordered(a$obwod.pl, levels = kolejnosc$obwod.pl)
 #wykres z datą na osi x
 ggplot(a)+
   geom_path(aes(x=data, y=srednia), color="blue", size=2)+
-  facet_wrap(~obwod.pl, ncol = 3)+
+  facet_wrap(~obwod.pl, ncol = 4)+
   theme_bw()
 
 # wykres z id na osi x
@@ -151,33 +151,35 @@ data.by <- a %>%
 
 png("obowdy.png", units="in", width=10, height=9, res=300)
 ggplot(a)+
-  geom_path(aes(x=id, y=srednia, color=by), size=2)+
+  geom_path(aes(x=id, y=srednia, color=by), size=2, show.legend = F)+
   facet_wrap(~obwod.pl, ncol = 3)+
   scale_color_manual(values = c("tak"="orange4", "nie"="blue"))+
-  geom_hline(yintercept = linia1, color = "goldenrod2", linetype = "dashed")+
+  geom_hline(aes(yintercept = linia1, linetype=""), color="red4")+
+  geom_vline(aes(xintercept = linia2, linetype=" "),color= "red4", show.legend = F)+
   geom_vline(xintercept = linia2, color = "firebrick3", linetype = "dashed")+
   labs(x= "ilość dni od przekroczenia 0,1 zarażenia na 100 tys. mieszkańców", 
        y= "dzienny przyrost", 
-       title = "Liczba dziennych zakażeń na 100 tys. mieszkańców na Białorusi i ośmiu najbardziej dotkniętych jednostkach RF",
-       subtitle = "średnia krocząca z poprzednich 7 dni",
+       title = "Liczba dziennych zakażeń na 100 tys. mieszkańców na Białorusi i 11 najbardziej dotkniętych jednostkach RF",
+       subtitle = "średnia krocząca z 7 dni",
        caption = "Źródło: CSSE at Johns Hopkins University, Rospotrebnadzor, liczba ludności za Wikipedią")+
+  scale_linetype_manual(name = c("", " "), values = c("longdash", "dotted"), labels = c(paste("poziom przyrostu zakażeń na Białorusi\nstan na ",format(data.by,"%d %B %Y") ), "ilość dni od przekroczenia poziomu 0,1 zakażenia \nna 100 tys. mieszkancow na Białorusi"))+
   theme_bw()+
-  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), legend.position = "none",
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), legend.position = "top",
         plot.caption = element_text( size = 8))
 dev.off()
 
 # to samo - wariant z legendą h i vline
-png("obowdy2.png", units="in", width=10, height=9, res=300)
+png("obowdy2.png", units="in", width=10, height=6, res=300)
   ggplot(a)+
   geom_path( aes(x=id, y=srednia, color=by),size=2, show.legend = F)+
-  facet_wrap(~obwod.pl, ncol = 3)+
+  facet_wrap(~obwod.pl, ncol = 4)+
   geom_hline(aes(yintercept = linia1, linetype=""), color="red4")+
   geom_vline(aes(xintercept = linia2, linetype=" "),color= "red4", show.legend = F)+
   labs(x= "ilość dni od przekroczenia 0,1 zarażenia na 100 tys. mieszkańców", 
-       y= "dzienny przyrost",
+       y= "dzienna ilość zakażeń",
        #linetype="",
        title = "Liczba dziennych zakażeń na 100 tys. mieszkańców na Białorusi i w ośmiu najbardziej dotkniętych jednostkach RF",
-       subtitle = "Średnia krocząca z poprzednich 7 dni. Jednostki terytorialne powyżej 1 mln mieszkańców",
+       subtitle = "Średnia krocząca z 7 dni. Jednostki terytorialne powyżej 1 mln mieszkańców",
        caption = "Źródło: CSSE at Johns Hopkins University, Rospotrebnadzor, liczba ludności za Wikipedią")+
   scale_color_manual(values = c("tak"="orange4", "nie"="blue"))+
   #guides(color=FALSE)+
