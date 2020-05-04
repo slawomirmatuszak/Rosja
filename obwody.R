@@ -156,7 +156,16 @@ obw.git <- obw.git%>%
 #etap ręczny w excelu
 lacznik <- readxl::read_xlsx("obwody.xlsx")%>%
   rename(id2=id2.git)%>%
-  select(-1)
+  select(-1)%>%
+  mutate(okreg.federalny = case_when(is.na(federal) ~ "Rosja",
+                                     federal=="Central" ~"Centralny",
+                                     federal=="Ural" ~"Uralski",
+                                     federal=="Northwestern" ~"Północno-Zachodni",
+                                     federal=="Volga" ~"Nadwołżański",
+                                     federal=="Far Eastern" ~"Dalekowschodni",
+                                     federal=="Siberian" ~"Syberyjski",
+                                     federal=="Southern" ~"Południowy",
+                                     federal=="North Caucasian" ~"Północnokaukaski"))
 
 obw.gotowe <- left_join(obw.git, lacznik, by="id2")%>%
   left_join(obw.calosc, by="id2.obwody")
