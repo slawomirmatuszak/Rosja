@@ -44,7 +44,7 @@ ES.wykres <- ES %>%
   filter(srednia>1)%>%
   group_by(nazwa.pl)%>%
   mutate(id=row_number())%>%
-  select(nazwa.pl, srednia, id, data)%>%
+  select(nazwa.pl, srednia, id, data, zach.100)%>%
   rename(obwod.pl=nazwa.pl)
 
 save(ES.wykres, file="ES.wykres.RDA")
