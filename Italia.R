@@ -64,6 +64,13 @@ ggplot(ITA)+
   facet_wrap(~nazwa.pl, ncol = 5)+
   theme_bw()
 
+a <- ITA
+
+  ggplot(a, aes(x=data, y=zach.100))+
+   geom_point(size=2, color="blue", alpha = 0.7)+
+   geom_smooth(size = 2, color="red3", se=F,span=0.4)+
+   facet_wrap(~nazwa.pl, ncol = 5, scales = "free")+
+   theme_bw()
 ##################################################################################################################################
 # wykres porównujący prowincje z różnych krajów
 
@@ -82,9 +89,15 @@ ITA.wykres <- ITA %>%
   filter(srednia>1)%>%
   group_by(nazwa.pl)%>%
   mutate(id=row_number())%>%
-  select(nazwa.pl, srednia, id, data)%>%
+  select(nazwa.pl, srednia, id, data, zach.100)%>%
   rename(obwod.pl=nazwa.pl)%>%
   mutate(data=ymd(data))
+
+save(ITA.wykres, file="ITA.wykres.Rda")
+
+#################################################################################################################
+#dodajemy Włochy
+load("ITA.wykres.Rda")
 
 #dodajemy Białoruś
 load("bialorus.Rda")
@@ -112,7 +125,7 @@ RU <- Rosja.git %>%
   filter(srednia>1)%>%
   group_by(obwod.pl)%>%
   mutate(id=row_number())%>%
-  select(obwod.pl, srednia, id, data)%>%
+  select(obwod.pl, srednia, id, data, zach.100)%>%
   bind_rows(ITA.wykres)%>%
   bind_rows(ES.wykres)%>%
   bind_rows(bialorus)%>%
@@ -157,10 +170,7 @@ obostrzenia <- bind_rows(obostrzenia.DE, obostrzenia.ES, obostrzenia.IT)
 
 RU <- left_join(RU, obostrzenia, by="obwod.pl")
 
-  group_by(id.state)%>%
-  filter(date=="2020-03-22")%>%
-  select(id.state, id)%>%
-  rename(obostrzenia=id)
+
 
 kolejnosc <- RU %>%
   filter(srednia==max(srednia))%>%
@@ -189,14 +199,14 @@ data.by <- RU %>%
   select(data)%>%
   pull()
 
-png("5.panstw.5maja.png", units="in", width=13, height=10, res=300)
+png("5.panstw.10maja.png", units="in", width=13, height=10, res=300)
 ggplot(RU)+
   geom_path( aes(x=id, y=srednia, color=panstwo),size=2)+
   facet_wrap(~obwod.pl, ncol = 5)+
   labs(color="", y="dzienne nowe zakażenia na 100 tys. mieszkańców", x="ilość dni od przekroczenia 1 zakażenia na 100 tys. mieszkańców",
-       title = "Dzienny przyrost nowych zakażeń na 100 tys. mieszkańców",
-       subtitle = "Średnia krocząca z 7 dni. Jednostki terytorialne powyżej 1 mln mieszkańców",
-       caption = "Źródło: CSSE at Johns Hopkins University, Rospotrebnadzor, RKI, Protezione Civile, Ministerio de Sanidad, liczba ludności za Wikipedią")+
+       title = "Dzienny przyrost* nowych zakażeń na 100 tys. mieszkańców",
+       #subtitle = "Średnia krocząca z 7 dni. Jednostki terytorialne powyżej 1 mln mieszkańców",
+       caption = "*Średnia krocząca z 7 dni. Jednostki terytorialne powyżej 1 mln mieszkańców.                                                  Źródło: CSSE at Johns Hopkins University, Rospotrebnadzor, RKI, Protezione Civile, Ministerio de Sanidad, liczba ludności za Wikipedią")+
   geom_hline(aes(yintercept = linia1, linetype=""), color="red4")+
   geom_vline(aes(xintercept = obostrzenia, linetype="c"),color= "red4", show.legend = F)+
   geom_vline(aes(xintercept = linia2, linetype=" "),color= "red4", show.legend = F)+
