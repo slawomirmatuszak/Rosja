@@ -1,8 +1,9 @@
 library(data.table)
+library(tidyverse)
 #############################################################################################################
 # ustawiamy daty
 
-daty <- seq(as.Date("2020-05-02"), as.Date("2020-05-04"), by=1)
+daty <- seq(as.Date("2020-05-25"), as.Date("2020-05-27"), by=1)
 #daty <- format(daty, "%d/%m/%Y")
 daty <- as.character(daty)
 daty <- gsub("/", "-", daty)
@@ -72,6 +73,8 @@ Rosja.git <- Rosja.git %>%
   mutate(zach.100 = zach.dzienne*100000/ludnosc)%>%
   mutate(zach.100.cum = Sick*100000/ludnosc)%>%
   mutate(srednia= zoo::rollmean(zach.100, k=7, fill=NA, align="right"))%>%
+  mutate(obwod.pl=ifelse(Region.Name=="Республика Крым", paste("Krym"), obwod.pl))%>%
+  mutate(obwod.pl=ifelse(Region.Name=="Севастополь", paste("Sewastopol"), obwod.pl))%>%
   ungroup()
 
 save(Rosja.git, file="rosja.git.Rda")
@@ -107,6 +110,12 @@ ggplot(a)+
   facet_wrap(~obwod.pl, ncol = 4)+
   theme_bw()
 
+#regresja
+ggplot(a, aes(x=data, y=zach.100))+
+  geom_point(size=2, color="blue", alpha = 0.7)+
+  geom_smooth(size = 2, color="red3", se=F)+
+  facet_wrap(~obwod.pl, ncol = 5)+
+  theme_bw()
 
 ##############################################################################################################
 # porównanie RU do Białorusi
@@ -169,3 +178,99 @@ ggplot(a)+
   theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), legend.position = "top",
         plot.caption = element_text( size = 8))
 dev.off()
+
+
+# test końcowych liczb ----------------------------------------------------
+library(tidyverse)
+test.liczb <- Rosja.git %>%
+  mutate(zach.dzienne.test = as.character(zach.dzienne))%>%
+  filter(grepl("99$", zach.dzienne.test)==T)
+
+rosja <- Rosja.git %>%
+  filter(obwod.pl=="Rosja")%>%
+  select(data, Sick, zach.dzienne)%>%
+  rename(sick.RU=2, zach.dzienne.RU=3)
+
+regiony <- Rosja.git %>%
+  filter(Region.Name!="Всего")%>%
+  select(data,obwod.pl, Sick, zach.dzienne)%>%
+  group_by(data)%>%
+  summarise_if(is.numeric,sum)%>%
+  left_join(rosja, by = "data")
+
+test <-Rosja.git %>%
+  filter(data==max(data)-1)%>%
+  filter(Region.Name!="Всего")
+
+
+# aktywni i wyleczeni -----------------------------------------------------
+
+aktywni <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)
+
+
+smiertelnosc <- aktywni%>%
+  filter(data==max(data))%>%
+  arrange(desc(smiertelnosc))%>%
+  head(20)
+
+ggplot(smiertelnosc, aes(reorder(x=obwod.pl, smiertelnosc), y=smiertelnosc))+
+  geom_col()+
+  coord_flip()
+
+top.20 <- aktywni %>%
+  filter(data==max(data))%>%
+  arrange(desc(zach.100.cum))%>%
+  head(20)%>%
+  select(obwod.pl)%>%
+  pull()
+
+aktywni.long <- aktywni %>%
+  pivot_longer(cols = c(aktywni, Die, Healed), names_to = "nazwy", values_to = "liczba")%>%
+  filter(obwod.pl %in% top.20)
+
+ggplot(aktywni.long, aes(x=data, y=liczba, color=nazwy))+
+  geom_path(size=2)+
+  facet_wrap(~obwod.pl, ncol=5, scales = "free_y")+
+  scale_color_manual(values = c("aktywni"="orange", "Healed"="darkgreen", "Die"="red"))+
+  theme_bw()+
+  theme(legend.position = "top")
+
+#kaukaz
+
+kaukaz <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc,okreg.federalny, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  filter(okreg.federalny=="Północnokaukaski")%>%
+  pivot_longer(cols = c(aktywni, Die, Healed), names_to = "nazwy", values_to = "liczba")%>%
+  mutate(nazwy=gsub("Die", "zmarli", nazwy),
+         nazwy=gsub("Healed", "wyleczeni", nazwy))
+
+png(paste0("E:/R/Covid-19/wykresy/kaukaz.",Sys.Date(),".png"), units="in", width=8, height=6, res=300)
+ggplot(kaukaz, aes(x=data, y=liczba, color=nazwy))+
+  geom_path(size=2)+
+  facet_wrap(~obwod.pl, scales = "free_y")+
+  scale_color_manual(values = c("aktywni"="orange", "wyleczeni"="darkgreen", "zmarli"="red"))+
+  labs(color="",
+       x="",
+       y="",
+       title="Epidemia w północnokaukaskim okręgu federalnym")+
+  theme_bw()+
+  theme(legend.position = "top", plot.title = element_text(hjust = 0.5))
+dev.off()
+
+# gdzie jest więcej wyleczonych, niż aktywnych
+aktywni.max <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  filter(data==max(data))%>%
+  mutate(wiecej.wyleczonych = aktywni<Healed)%>%
+  filter(wiecej.wyleczonych==T)%>%
+  select(obwod.pl)%>%
+  pull()
+
+wyleczeni <- aktywni
