@@ -1,0 +1,147 @@
+---
+title: "Dagestan"
+author: "Sławomir Matuszak"
+date: "27 05 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=F, warning=F}
+knitr::opts_chunk$set(echo = F)
+```
+
+```{r message=F, warning=F}
+library(tidyverse)
+library(scales)
+```
+
+```{r message=F, warning=F}
+load("E:/R/Rosja/rosja.git.Rda")
+```
+
+
+```{r }
+aktywni <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)
+
+
+smiertelnosc <- aktywni%>%
+  filter(data==max(data))%>%
+  filter(obwod.pl!="NA")%>%
+  arrange(desc(smiertelnosc))%>%
+  head(20)
+
+smiertelnosc.RU <- Rosja.git%>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  filter(obwod.pl=="Rosja")%>%
+  filter(data==max(data))%>%
+  select(smiertelnosc)%>%
+  pull()
+
+smiertelnosc.Kaukaz <- Rosja.git%>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, okreg.federalny, obwod.pl, zach.100.cum)%>%
+  filter(okreg.federalny=="Północnokaukaski")%>%
+  filter(data==max(data))%>%
+  summarise_if(is.numeric, sum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  select(smiertelnosc)%>%
+  pull()
+
+```
+
+W Dagestanie jest największa śmiertelność ze wszystkich 85 regionów w Rosji. Wynosi ona **`r paste0(round(smiertelnosc[1,10]*100,1),"%")`**, podczas gdy dla całej Rosji jest to **`r paste0(round(smiertelnosc.RU*100,1), "%")`**. W Północnokaukaskim Okręgu federalnym wynosi ona **`r paste0(round(smiertelnosc.Kaukaz*100,1),"%")`**
+
+```{r}
+ggplot(smiertelnosc, aes(reorder(x=obwod.pl, smiertelnosc), y=smiertelnosc))+
+  geom_col(fill="blue")+
+  coord_flip()+
+  scale_y_continuous(labels = percent)+
+  labs(x="", y="śmiertelność")+
+  theme_bw()
+```
+
+
+```{r}
+kaukaz <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc,okreg.federalny, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  filter(okreg.federalny=="Północnokaukaski")%>%
+  pivot_longer(cols = c(aktywni, Die, Healed), names_to = "nazwy", values_to = "liczba")%>%
+  mutate(nazwy=gsub("Die", "zmarli", nazwy),
+         nazwy=gsub("Healed", "wyleczeni", nazwy))
+```
+
+W Dagestanie było najwięcej zachorowań na Kaukazie jeśli brać całkowitą ilość zakażeń, ale wynika to z faktu, że mieszka tam najwiecej ludzi. 
+
+```{r fig.width=9, fig.height=5}
+kaukaz2 <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc,okreg.federalny, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  filter(okreg.federalny=="Północnokaukaski")
+
+ggplot(kaukaz2, aes(x=data, y=Sick, color=obwod.pl))+
+  geom_path(size=2)+
+  labs(x="",y="zakażenia", color="")+
+  theme_bw()
+```
+
+Natomiast jeśli wziąć ilość zakażeń na 100 tys. mieszkańców, to Dagestan niczym się nie wyróżnia. Można wręcz powiedzieć, że poziom zakażeń jest dość niski na tle sąsiadów. Największy problem jest w Osetii i Inguszetii. 
+
+```{r fig.width=9, fig.height=5}
+ggplot(kaukaz2, aes(x=data, y=zach.100.cum, color=obwod.pl))+
+  geom_path(size=2)+
+  labs(x="",y="zakażenia na 100 tys. mieszkańców", color="")+
+  theme_bw()
+```
+
+
+
+```{r}
+aktywni.max <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  filter(data==max(data))%>%
+  mutate(wiecej.wyleczonych = aktywni<Healed)%>%
+  filter(wiecej.wyleczonych==T)%>%
+  select(obwod.pl)%>%
+  pull()
+
+aktywni.long <- Rosja.git %>%
+  select(data, Sick, Healed, Die, ludnosc, Region.Name, obwod.pl, zach.100.cum)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  pivot_longer(cols = c(aktywni, Die, Healed), names_to = "nazwy", values_to = "liczba")%>%
+  filter(obwod.pl %in% aktywni.max)%>%
+  mutate(nazwy=gsub("Die", "zmarli", nazwy),
+         nazwy=gsub("Healed", "wyleczeni", nazwy))
+
+dagestan <- Rosja.git%>%
+  filter(obwod.pl=="Republika Dagestanu")%>%
+  filter(data==max(data))%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)
+
+```
+
+Poza największą śmiertelnością w rosyjskich jednostkach administracyjnych, jest jeszcze jedna kwestia, która wyróżnia Dagestan - liczba osób, które wyzdrowiały. Jedynie w `r length(aktywni.max)` liczba wyleczonych przewyższa liczbę aktywnych zakażonych, przy czym różnica ta jest zazwyczaj  niewielka. Dagestan jest jedyną republiką, gdzie epidemia niemal wygasła. Wyleczyło się `r dagestan[,3]` osób, aktywnych zakażonych jest jedynie `r dagestan[,21]`. 
+
+```{r fig.width=9, fig.height=10,}
+ggplot(aktywni.long, aes(x=data, y=liczba, color=nazwy))+
+  geom_path(size=2)+
+  facet_wrap(~obwod.pl, scales = "free_y")+
+  scale_color_manual(values = c("aktywni"="orange", "wyleczeni"="darkgreen", "zmarli"="red"))+
+  scale_x_date(date_breaks = "months" , date_labels = "%b")+
+  labs(color="",
+       x="",
+       y="")+
+  theme_bw()+
+  theme(legend.position = "top", plot.title = element_text(hjust = 0.5))
+```
+
