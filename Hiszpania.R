@@ -18,8 +18,15 @@ ES <- ES %>%
   mutate(zach.dzienne = c(0,diff(cases)))%>%
   mutate(zgony.dzienne = c(0,diff(zmarli)))%>%
   mutate(wyleczeni.dzienne = c(0,diff(recovered)))%>%
+  mutate(zach.100.cum = cases*1e5/population)%>%
   mutate(zach.100 = zach.dzienne*100000/population)%>%
   mutate(srednia= zoo::rollmean(zach.100, k=7, fill=NA, align="right"))
+
+test<-ES %>%
+  filter(data==max(data))%>%
+  ungroup()%>%
+  select(nazwa.pl, cases, population, zach.100.cum)%>%
+  arrange(desc(zach.100.cum))
 
 #wykres dla hiszpanii
 ggplot(ES)+
