@@ -46,17 +46,26 @@ oldnames <- names(ITA)
 newnames <- c("data", "kod", "nazwa", "lat", "long", "recovered", "dead", "total.cases")
 
 ITA <- ITA %>%
-  rename_at(vars(oldnames), ~ newnames)%>%
+  rename_at(vars(all_of(oldnames)), ~ newnames)%>%
   left_join(regiony.IT, by="nazwa")%>%
   group_by(nazwa)%>%
   mutate(zach.dzienne = c(0,diff(total.cases)))%>%
   mutate(zgony.dzienne = c(0,diff(dead)))%>%
   mutate(wyleczeni.dzienne = c(0,diff(recovered)))%>%
   mutate(zach.100 = zach.dzienne*100000/population)%>%
+  mutate(zach.100.cum = total.cases*1e5/population)%>%
   mutate(srednia= zoo::rollmean(zach.100, k=7, fill=NA, align="right"))%>%
   separate(data, c("data", "godzina"), sep = " ", remove = T)%>%
   mutate(data=ymd(data))%>%
   select(-godzina)
+
+save(ITA, file = "ITA.Rda")
+
+test<-ITA %>%
+  filter(data==max(data))%>%
+  ungroup()%>%
+  select(nazwa.pl, total.cases, population, zach.100.cum)%>%
+  arrange(desc(zach.100.cum))
 
 #wykres dla Włoch
 ggplot(ITA)+
@@ -199,7 +208,7 @@ data.by <- RU %>%
   select(data)%>%
   pull()
 
-png("5.panstw.10maja.png", units="in", width=13, height=10, res=300)
+png("E:/R/Covid-19/wykresy/5.panstw.20maja.png", units="in", width=13, height=10, res=300)
 ggplot(RU)+
   geom_path( aes(x=id, y=srednia, color=panstwo),size=2)+
   facet_wrap(~obwod.pl, ncol = 5)+
@@ -215,4 +224,59 @@ ggplot(RU)+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), legend.position = "top",
         plot.caption = element_text( size = 8))
+dev.off()
+
+
+# Włochy i Dagestan -------------------------------------------------------
+library(tidyverse)
+library(gridExtra)
+#dodajemy Włochy
+load("ITA.Rda")
+# dodajemy rosję  
+load("rosja.git.Rda")
+
+a <- Rosja.git %>%
+  rename(nazwa.pl=obwod.pl)%>%
+  mutate(dead.cum = Die*1e5/ludnosc)%>%
+  select(data, nazwa.pl, srednia, zach.100.cum, dead.cum, Die)%>%
+  rename(dead=Die)%>%
+  filter(nazwa.pl=="Republika Dagestanu")
+
+ITA.Dag <- ITA %>%
+  ungroup()%>%
+  filter(nazwa.pl %in% c("Dolina Aosty", "Piemont", "Lombardia", "Trydent", "Wenecja Euganejska", "Emilia-Romania", "Friuli-Wenecja Julijska", "Liguria", "Toskania"))%>%
+  mutate(dead.cum = dead*1e5/population)%>%
+  select(data, nazwa.pl, srednia, zach.100.cum, dead, dead.cum)%>%
+  bind_rows(a)
+
+ggplot(ITA.Dag)+
+  geom_path( aes(x=data, y=srednia),size=2, color="orange")+
+  facet_wrap(~nazwa.pl, ncol = 5)+
+  labs(x="", y="", title = "Ilość dziennych nowych zakażeń na 100 tys. mieszkańców")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))-> p1
+
+ggplot(ITA.Dag)+
+  geom_path( aes(x=data, y=zach.100.cum),size=2, color="orange")+
+  facet_wrap(~nazwa.pl, ncol = 5)+
+  labs(x="", y="", title = "Skumulowana ilość zakażeń na 100 tys. mieszkańców")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))-> p2
+
+ggplot(ITA.Dag)+
+  geom_path( aes(x=data, y=dead),size=2, color="red")+
+  facet_wrap(~nazwa.pl, ncol = 5)+
+  labs(x="", y="", title = "Skumulowana ilość zgonów z powodu Covid-19")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))-> p3
+
+ggplot(ITA.Dag)+
+  geom_path( aes(x=data, y=dead.cum),size=2, color="red")+
+  facet_wrap(~nazwa.pl, ncol = 5)+
+  labs(x="", y="", title = "Skumulowana ilość zgonów na 100 tys. mieszkańców z powodu Covid-19")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))-> p4
+
+png("E:/R/Covid-19/wykresy/dagestan.24maja.png", units="in", width=16, height=10, res=300)
+grid.arrange(p1, p3, p2, p4, ncol=2)
 dev.off()
