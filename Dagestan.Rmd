@@ -145,3 +145,28 @@ ggplot(aktywni.long, aes(x=data, y=liczba, color=nazwy))+
   theme(legend.position = "top", plot.title = element_text(hjust = 0.5))
 ```
 
+Jeszcze jedną osobliwością Dagestanu jest ilość nowych przypadków ws aktywnych.
+```{r}
+dag <- Rosja.git%>%
+  filter(obwod.pl=="Republika Dagestanu")%>%
+  filter(data>max(data)-7)%>%
+  mutate(aktywni=Sick-(Healed+Die),
+         smiertelnosc=Die/Sick)%>%
+  pivot_longer(cols = c(aktywni, zach.dzienne), names_to = "nazwy", values_to = "liczba")%>%
+  mutate(nazwy=gsub("zach.dzienne", "dzienne zakażenia", nazwy))
+
+dag2<-dag%>%
+  filter(data==max(data))
+```
+
+```{r}
+png("E:/R/Covid-19/wykresy/dagestan.aktywni.png", units="in", width=8, height=8, res=300)
+ggplot()+
+  geom_path(data=dag, aes(x=data, y=liczba, color=nazwy),size=2)+
+  geom_label(data=dag2, aes(x=data,y=liczba, fill=nazwy), label=dag2$liczba, nudge_x = 0.3, show.legend = F)+
+  labs(color="", y="liczba zakażonych", x="")+
+  theme_bw()+
+  theme(legend.position = "top")
+dev.off()
+```
+
